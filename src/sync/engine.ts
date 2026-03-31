@@ -102,7 +102,7 @@ async function doSyncThread(options: SyncOptions): Promise<SyncResult> {
     //    - The parent/root message (ts === thread_ts) — it's the task itself in Asana
     const syncableMessages = messages.filter((msg) => {
       if (msg.bot_id || msg.subtype === 'bot_message') return false;
-      if (/^sync$/i.test(msg.text.trim())) return false;
+      if (/^(sync|verify)$/i.test(msg.text.trim())) return false;
       if (msg.ts === threadTs) return false;
       return true;
     });
@@ -110,15 +110,18 @@ async function doSyncThread(options: SyncOptions): Promise<SyncResult> {
     // 3. Get already-synced keys
     const syncedKeys = getSyncedMessageKeys(db, threadTs);
 
-    // 4. Filter to un-synced messages, sorted chronologically
-    const taskGids = mappings.map((m) => m.asana_task_gid);
+    // 4. Route each message to the right task(s):
+    //    - If the message mentions a specific task name → only that task
+    //    - If no specific task name is mentioned → all tasks
     const pendingWork: Array<{
       message: SlackMessage;
       taskGid: string;
     }> = [];
 
     for (const message of syncableMessages) {
-      for (const taskGid of taskGids) {
+      const targetTaskGids = routeMessageToTasks(message.text, mappings);
+
+      for (const taskGid of targetTaskGids) {
         const key = `${message.ts}:${taskGid}`;
         if (!syncedKeys.has(key)) {
           pendingWork.push({ message, taskGid });
@@ -131,7 +134,7 @@ async function doSyncThread(options: SyncOptions): Promise<SyncResult> {
         threadTs,
         totalMessages: messages.length,
         pendingSync: pendingWork.length,
-        tasks: taskGids.length,
+        tasks: mappings.length,
       },
       'Sync diff calculated',
     );
@@ -233,4 +236,35 @@ async function doSyncThread(options: SyncOptions): Promise<SyncResult> {
 function slackTsToDate(ts: string): Date {
   const seconds = parseFloat(ts);
   return new Date(seconds * 1000);
+}
+
+/**
+ * Determines which Asana task(s) a message should be routed to.
+ *
+ * - If the message text mentions one or more specific task names → only those tasks
+ * - If no specific task name is found → all tasks (blanket comment/approval)
+ */
+function routeMessageToTasks(
+  messageText: string,
+  mappings: TaskMapping[],
+): string[] {
+  const textLower = messageText.toLowerCase();
+  const matchedGids: string[] = [];
+
+  for (const mapping of mappings) {
+    if (!mapping.item_name) continue;
+
+    // Check if the message contains this task name (case-insensitive)
+    if (textLower.includes(mapping.item_name.toLowerCase())) {
+      matchedGids.push(mapping.asana_task_gid);
+    }
+  }
+
+  // If specific task(s) mentioned → route only to those
+  // If none mentioned → route to all tasks (blanket comment)
+  if (matchedGids.length > 0) {
+    return matchedGids;
+  }
+
+  return mappings.map((m) => m.asana_task_gid);
 }

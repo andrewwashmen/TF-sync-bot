@@ -1,0 +1,36 @@
+{
+  "name": "slack-asana-sync",
+  "version": "1.0.0",
+  "description": "Sync Slack thread content to linked Asana tasks via /sync command",
+  "main": "dist/app.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/app.ts",
+    "start": "node dist/app.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src/"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@slack/bolt": "^4.6.0",
+    "better-sqlite3": "^12.8.0",
+    "dotenv": "^17.3.1",
+    "fastify": "^5.8.4",
+    "pino": "^10.3.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^25.5.0",
+    "@typescript-eslint/eslint-plugin": "^8.57.2",
+    "@typescript-eslint/parser": "^8.57.2",
+    "@vitest/coverage-v8": "^4.1.2",
+    "eslint": "^10.1.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.2"
+  }
+}

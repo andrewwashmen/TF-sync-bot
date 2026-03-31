@@ -55,8 +55,6 @@ export function registerSyncCommand(app: App, deps: SyncCommandDeps): void {
 
     // Auto-discover: if no mappings, parse the parent message and search Asana
     if (mappings.length === 0) {
-      await replyInThread('No linked Asana tasks found. Discovering from thread...');
-
       mappings = await discoverMappings({
         client,
         channelId,
@@ -74,20 +72,7 @@ export function registerSyncCommand(app: App, deps: SyncCommandDeps): void {
         );
         return;
       }
-
-      const discovered = mappings
-        .map((m) => m.item_name ?? m.asana_task_gid)
-        .join(', ');
-      await replyInThread(`Found ${mappings.length} Asana task(s): ${discovered}`);
     }
-
-    const taskNames = mappings
-      .map((m) => m.item_name ?? m.asana_task_gid)
-      .join(', ');
-
-    await replyInThread(
-      `Syncing thread to ${mappings.length} Asana task(s): ${taskNames}...`,
-    );
 
     try {
       const result = await syncThread({
@@ -102,13 +87,17 @@ export function registerSyncCommand(app: App, deps: SyncCommandDeps): void {
         logger,
       });
 
+      const taskNames = mappings
+        .map((m) => m.item_name ?? m.asana_task_gid)
+        .join(', ');
+
       let summary: string;
       if (result.messagesSynced === 0 && result.errors === 0) {
-        summary = 'Everything is already in sync — no new messages to push.';
+        summary = `Linked to ${mappings.length} task(s): ${taskNames}\nAll synced — no new messages to push.`;
       } else {
-        summary = `Synced ${result.messagesSynced} new message(s) to ${mappings.length} Asana task(s).`;
+        summary = `Synced ${result.messagesSynced} new message(s) to ${mappings.length} Asana task(s): ${taskNames}`;
         if (result.errors > 0) {
-          summary += ` (${result.errors} error(s) — check logs for details)`;
+          summary += `\n(${result.errors} error(s) — check logs for details)`;
         }
       }
 

@@ -112,16 +112,42 @@ async function doSyncThread(options: SyncOptions): Promise<SyncResult> {
 
     // 4. Route each message to the right task(s):
     //    - If the message mentions a specific task name → only that task
-    //    - If no specific task name is mentioned → all tasks
+    //    - If no specific task name is mentioned → all tasks EXCEPT those
+    //      that already received a targeted message in this batch.
+    //
+    // This supports the pattern:
+    //   Comment 1: "TaskName-3/4 - Rejected"   → only task 3/4
+    //   Comment 2: "Approved - delivery 8th"    → all tasks EXCEPT 3/4
+    //
+    // First pass: identify tasks that received targeted (specific) messages
+    const tasksWithTargetedMessages = new Set<string>();
+
+    for (const message of syncableMessages) {
+      const targeted = routeMessageToTasks(message.text, mappings);
+      if (targeted.length < mappings.length) {
+        // This message was targeted at specific task(s), not all
+        for (const gid of targeted) {
+          tasksWithTargetedMessages.add(gid);
+        }
+      }
+    }
+
+    // Second pass: build pending work with exclusion logic
     const pendingWork: Array<{
       message: SlackMessage;
       taskGid: string;
     }> = [];
 
     for (const message of syncableMessages) {
-      const targetTaskGids = routeMessageToTasks(message.text, mappings);
+      const targeted = routeMessageToTasks(message.text, mappings);
+      const isBlanket = targeted.length === mappings.length;
 
-      for (const taskGid of targetTaskGids) {
+      for (const taskGid of targeted) {
+        // Skip blanket messages for tasks that already have targeted messages
+        if (isBlanket && tasksWithTargetedMessages.has(taskGid)) {
+          continue;
+        }
+
         const key = `${message.ts}:${taskGid}`;
         if (!syncedKeys.has(key)) {
           pendingWork.push({ message, taskGid });

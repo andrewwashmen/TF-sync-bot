@@ -1,0 +1,32 @@
+graph TD
+    A["👤 Assessor Fills Form<br/>(Shoe/Bag Assessment)"] --> B["🔄 Zapier Webhook Received"]
+    B --> C["⚡ Zapier Processes Data"]
+    C --> D["Zapier Posts to Slack"]
+    C --> E["Zapier Posts to Asana"]
+    D --> F["📱 Slack Channel<br/>#tf-shoes-and-bags<br/>(Assessment Report Posted)"]
+    E --> G["📋 Asana Task<br/>(Comment Added)"]
+    F --> H["🤖 TF SYNC BOT<br/>Detects 'Assessment Report'"]
+    H --> I["⏱️ Bot Waits 60 Seconds"]
+    I --> J["🔍 Bot Auto-Verifies<br/>(Compares Slack vs Asana)"]
+    J --> K{Match?}
+    K -->|✅ All Match| L["✓ Posts in Thread:<br/>'All match'"]
+    K -->|❌ Mismatch Found| M["🔧 Auto-Corrects on Asana<br/>(Overwrites Comment)"]
+    M --> N["⚠️ Posts in Thread:<br/>'Mismatch detected<br/>and corrected'<br/>(Shows diff)"]
+    L --> O["✅ Assessment Complete"]
+    N --> O
+
+    style A fill:#e1f5ff
+    style B fill:#fff3e0
+    style C fill:#fff3e0
+    style D fill:#f3e5f5
+    style E fill:#f3e5f5
+    style F fill:#c8e6c9
+    style G fill:#c8e6c9
+    style H fill:#ffe0b2
+    style I fill:#ffe0b2
+    style J fill:#ffccbc
+    style K fill:#ffccbc
+    style L fill:#c8e6c9
+    style M fill:#ffccbc
+    style N fill:#ffccbc
+    style O fill:#b2dfdb

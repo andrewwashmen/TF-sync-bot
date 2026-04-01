@@ -11,8 +11,10 @@ import {
 import { fetchThreadMessages, resolveUserName } from '../slack/thread.js';
 import type { SlackMessage } from '../slack/thread.js';
 import { classifyMessage } from './classifier.js';
+import { classifyApproval } from './approval.js';
 import { formatAsanaComment } from '../slack/formatters.js';
 import { AsanaClient } from '../asana/client.js';
+import { config } from '../config.js';
 
 // Per-thread lock to prevent concurrent syncs producing duplicates
 const threadLocks = new Map<string, Promise<SyncResult>>();
@@ -209,6 +211,35 @@ async function doSyncThread(options: SyncOptions): Promise<SyncResult> {
                 'Failed to upload file',
               );
             }
+          }
+        }
+
+        // Update approval custom field if the message indicates a decision
+        const approvalStatus = classifyApproval(message.text);
+        if (approvalStatus) {
+          const { approvalField } = config;
+          const optionGid =
+            approvalStatus === 'approved'
+              ? approvalField.approvedGid
+              : approvalStatus === 'partially_approved'
+                ? approvalField.partiallyApprovedGid
+                : approvalField.rejectedGid;
+
+          try {
+            await asanaClient.updateCustomField(
+              taskGid,
+              approvalField.customFieldGid,
+              optionGid,
+            );
+            logger.info(
+              { taskGid, approvalStatus },
+              'Updated approval custom field',
+            );
+          } catch (fieldErr) {
+            logger.error(
+              { err: fieldErr, taskGid, approvalStatus },
+              'Failed to update approval custom field',
+            );
           }
         }
 

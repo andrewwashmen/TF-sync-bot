@@ -1,0 +1,35 @@
+graph TD
+    A["🔍 Verify Triggered"] --> B{Manual or<br/>Auto?}
+    B -->|Manual| C["👤 User Types 'verify'<br/>in Slack Thread"]
+    B -->|Auto| D["🤖 Auto-Verify<br/>(60 sec after Report)"]
+    C --> E["📱 Read Slack Parent Message<br/>(Assessment Report)"]
+    D --> E
+    E --> F["🔍 Parse Assessment Fields<br/>Per Item:<br/>• Brand<br/>• Outer Material<br/>• Inner Lining<br/>• Stain/Damage<br/>• Recommendation<br/>• Disclaimer<br/>• Price<br/>• Turnaround<br/>• Level"]
+    F --> G["🔗 Find Linked Asana Task"]
+    G --> H["📋 Read Asana Task<br/>Comment Stream"]
+    H --> I["🔍 Parse Asana Assessment<br/>Fields (Same 9 Fields)"]
+    I --> J["⚖️ Compare Field by Field<br/>Slack vs Asana"]
+    J --> K{All Fields<br/>Match?}
+    K -->|✅ Match| L["✓ Post in Thread:<br/>'All match'"]
+    K -->|❌ Mismatch| M["📊 Generate Diff Report<br/>Shows:<br/>• Slack value<br/>• Asana value<br/>• Status (MISMATCH)"]
+    M --> N["📝 Post Corrected Comment<br/>to Asana<br/>(overwrites with Slack data)"]
+    N --> O["⚠️ Post in Thread:<br/>'Mismatch detected'<br/>+ Full Diff<br/>+ Confirmation:<br/>'Slack version posted<br/>to Asana'"]
+    L --> P["✅ Verify Complete"]
+    O --> P
+
+    style A fill:#e3f2fd
+    style B fill:#fff3e0
+    style C fill:#e3f2fd
+    style D fill:#ffe0b2
+    style E fill:#c5cae9
+    style F fill:#b3e5fc
+    style G fill:#c5cae9
+    style H fill:#c5cae9
+    style I fill:#b3e5fc
+    style J fill:#ffccbc
+    style K fill:#ffccbc
+    style L fill:#c8e6c9
+    style M fill:#ffccbc
+    style N fill:#ffccbc
+    style O fill:#ffccbc
+    style P fill:#b2dfdb

@@ -87,6 +87,28 @@ export class AsanaClient {
       .map((s) => ({ gid: s.gid, text: s.text, created_at: s.created_at }));
   }
 
+  async updateCustomField(
+    taskGid: string,
+    customFieldGid: string,
+    enumOptionGid: string,
+  ): Promise<void> {
+    await this.fetchWithRetry(
+      `${ASANA_BASE_URL}/tasks/${taskGid}`,
+      {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${this.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          data: {
+            custom_fields: { [customFieldGid]: enumOptionGid },
+          },
+        }),
+      },
+    );
+  }
+
   async addComment(taskGid: string, commentText: string): Promise<string> {
     const response = await this.fetchWithRetry(
       `${ASANA_BASE_URL}/tasks/${taskGid}/stories`,

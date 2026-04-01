@@ -1,0 +1,38 @@
+graph TD
+    A["👤 User Types 'sync'<br/>in Slack Thread"] --> B["🤖 TF SYNC BOT<br/>Detects Command"]
+    B --> C{Linked Asana<br/>Task Known?}
+    C -->|❌ No| D["🔗 Bot Discovers<br/>Linked Asana Task<br/>(from parent message)"]
+    C -->|✅ Yes| E["📋 Fetch Task Reference<br/>(from database)"]
+    D --> F["📝 Fetch All Thread Messages<br/>from Slack"]
+    E --> F
+    F --> G["🔍 Filter Out:<br/>• Bot messages<br/>• 'sync' commands<br/>• Parent message"]
+    G --> H["💾 Check Database<br/>for Already-Synced Messages"]
+    H --> I["✨ Identify New Messages<br/>(not yet synced)"]
+    I --> J{Any New<br/>Messages?}
+    J -->|❌ No| K["📢 Post in Thread:<br/>'Nothing new to sync'"]
+    J -->|✅ Yes| L["📤 Sync Each New Message<br/>to Asana as Comment"]
+    L --> M{File<br/>Attachments?}
+    M -->|✅ Yes| N["📎 Upload Attachments<br/>to Asana Task"]
+    M -->|❌ No| O["💾 Mark Messages<br/>as Synced in DB"]
+    N --> O
+    O --> P["📊 Post Summary in Thread:<br/>• # messages synced<br/>• # files attached<br/>• Asana link"]
+    K --> Q["✅ Sync Complete"]
+    P --> Q
+
+    style A fill:#e3f2fd
+    style B fill:#fff3e0
+    style C fill:#fff3e0
+    style D fill:#c5cae9
+    style E fill:#c5cae9
+    style F fill:#c5cae9
+    style G fill:#b3e5fc
+    style H fill:#b3e5fc
+    style I fill:#b3e5fc
+    style J fill:#ffccbc
+    style K fill:#ffccbc
+    style L fill:#c8e6c9
+    style M fill:#ffccbc
+    style N fill:#c8e6c9
+    style O fill:#c8e6c9
+    style P fill:#a5d6a7
+    style Q fill:#b2dfdb

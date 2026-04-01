@@ -31,6 +31,12 @@ export const config = {
     host: process.env.HOST ?? '0.0.0.0',
     logLevel: process.env.LOG_LEVEL ?? 'info',
   },
+  approvalField: {
+    customFieldGid: process.env.ASANA_APPROVAL_FIELD_GID ?? '1213817628774753',
+    approvedGid: process.env.ASANA_APPROVED_OPTION_GID ?? '1213817628774754',
+    partiallyApprovedGid: process.env.ASANA_PARTIALLY_APPROVED_OPTION_GID ?? '1213817628774755',
+    rejectedGid: process.env.ASANA_REJECTED_OPTION_GID ?? '1213817628774756',
+  },
   autoVerify: {
     /** Channel IDs to auto-verify (comma-separated). Leave empty to disable. */
     channelIds: (process.env.AUTO_VERIFY_CHANNELS ?? '').split(',').filter(Boolean),

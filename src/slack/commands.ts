@@ -197,8 +197,6 @@ export function registerAutoVerify(app: App, deps: SyncCommandDeps): void {
           });
         };
 
-        await replyInThread('Auto-verifying assessment report...');
-
         await runVerify({
           client,
           channelId,
@@ -217,8 +215,12 @@ export function registerAutoVerify(app: App, deps: SyncCommandDeps): void {
   });
 }
 
+const MISMATCH_ALERT_CHANNEL = 'C0AQ4HSDCRK';
+
 /**
  * Core verify logic — used by both manual "verify" command and auto-verify.
+ * Posts exactly ONE message in the thread with the result.
+ * On mismatch: auto-corrects on Asana and sends alert to the alert channel.
  */
 async function runVerify(opts: {
   client: WebClient;
@@ -243,10 +245,9 @@ async function runVerify(opts: {
     logger,
   } = opts;
 
-  // Get or discover mappings
+  // Get or discover mappings (silently — no intermediate messages)
   let mappings = getMappingsByThread(db, threadTs);
   if (mappings.length === 0) {
-    await replyInThread('No linked Asana tasks found. Discovering from thread...');
     mappings = await discoverMappings({
       client,
       channelId,
@@ -265,10 +266,7 @@ async function runVerify(opts: {
     }
   }
 
-  await replyInThread('Verifying assessment reports...');
-
   try {
-    // Fetch parent message
     const parentText = await fetchParentMessageText(client, channelId, threadTs);
     if (!parentText) {
       await replyInThread('Could not read the parent message.');
@@ -282,64 +280,79 @@ async function runVerify(opts: {
       logger,
     });
 
-    const report = formatVerifyReport(result);
-    await replyInThread(report);
+    if (result.allMatch) {
+      // Single message — all good
+      await replyInThread('All assessment reports match between Slack and Asana.');
+      return;
+    }
 
-    // Self-correct: if there are mismatches or missing comments, fix them
+    // Mismatch found — auto-correct and send single summary
     const fixable = result.tasks.filter(
       (t) => t.status === 'mismatch' || t.status === 'missing_on_asana',
     );
 
-    if (fixable.length > 0) {
-      await replyInThread(
-        `Found ${fixable.length} task(s) with issues. Correcting on Asana...`,
+    const { parseAssessmentItems } = await import('./parser.js');
+    const slackItems = parseAssessmentItems(parentText);
+    const correctedNames: string[] = [];
+
+    for (const task of fixable) {
+      const slackItem = slackItems.find(
+        (item) =>
+          item.taskName.trim().toLowerCase() ===
+          task.taskName.trim().toLowerCase(),
       );
+      if (!slackItem) continue;
 
-      const { parseAssessmentItems } = await import('./parser.js');
-      const slackItems = parseAssessmentItems(parentText);
+      const commentBody = [
+        `*Task Names:*\n${slackItem.taskName}`,
+        `*Brand:* ${slackItem.brand}`,
+        `*Outer Material:* ${slackItem.outerMaterial}`,
+        `*Inner Lining:* ${slackItem.innerLining}`,
+        `*Stain/Damage:*\n${slackItem.stainDamage}`,
+        `*Recommendation:*\n${slackItem.recommendation}`,
+        `*Disclaimer:* ${slackItem.disclaimer}`,
+        `*Price:* ${slackItem.price}`,
+        `*Turnaround:* ${slackItem.turnaround}`,
+        `*Level:* ${slackItem.level}`,
+      ].join('\n\n');
 
-      let corrected = 0;
-      for (const task of fixable) {
-        const slackItem = slackItems.find(
-          (item) =>
-            item.taskName.trim().toLowerCase() ===
-            task.taskName.trim().toLowerCase(),
+      const plainComment = slackMrkdwnToPlainText(commentBody);
+
+      try {
+        await asanaClient.addComment(
+          task.asanaTaskGid,
+          `[CORRECTED ASSESSMENT]\n\n${plainComment}`,
         );
-        if (!slackItem) continue;
-
-        const commentBody = [
-          `*Task Names:*\n${slackItem.taskName}`,
-          `*Brand:* ${slackItem.brand}`,
-          `*Outer Material:* ${slackItem.outerMaterial}`,
-          `*Inner Lining:* ${slackItem.innerLining}`,
-          `*Stain/Damage:*\n${slackItem.stainDamage}`,
-          `*Recommendation:*\n${slackItem.recommendation}`,
-          `*Disclaimer:* ${slackItem.disclaimer}`,
-          `*Price:* ${slackItem.price}`,
-          `*Turnaround:* ${slackItem.turnaround}`,
-          `*Level:* ${slackItem.level}`,
-        ].join('\n\n');
-
-        const plainComment = slackMrkdwnToPlainText(commentBody);
-
-        try {
-          await asanaClient.addComment(
-            task.asanaTaskGid,
-            `[CORRECTED ASSESSMENT]\n\n${plainComment}`,
-          );
-          corrected++;
-        } catch (err) {
-          logger.error(
-            { err, taskGid: task.asanaTaskGid },
-            'Failed to post corrected comment',
-          );
-        }
+        correctedNames.push(task.taskName);
+      } catch (err) {
+        logger.error(
+          { err, taskGid: task.asanaTaskGid },
+          'Failed to post corrected comment',
+        );
       }
-
-      await replyInThread(
-        `Corrected ${corrected} Asana task(s). The updated assessment has been posted as a new comment.`,
-      );
     }
+
+    // Single message in thread
+    await replyInThread(
+      `Assessment mismatch detected. Corrected ${correctedNames.length} task(s) on Asana.`,
+    );
+
+    // Build thread link
+    const threadLink = `https://washmen.slack.com/archives/${channelId}/p${threadTs.replace('.', '')}`;
+
+    // Alert to the mismatch channel
+    const alertLines = [
+      `*Assessment Mismatch Detected*`,
+      `*Assessment Report:* <${threadLink}|View on Slack>`,
+      `*Tasks affected:*`,
+      ...correctedNames.map((name) => `• ${name}`),
+      `\nAuto-corrected on Asana.`,
+    ];
+
+    await client.chat.postMessage({
+      channel: MISMATCH_ALERT_CHANNEL,
+      text: alertLines.join('\n'),
+    });
   } catch (err) {
     logger.error({ err, threadTs }, 'Verify failed');
     await replyInThread(
